@@ -88,6 +88,7 @@ pub fn publish(
 
         let upload_client = http::featured_legacy_auth_client(user, Feature::Sites);
 
+        deploy::pre_upload()?;
         // Next, upload and deploy the worker with the updated asset_manifest
         upload::script(&upload_client, &target, Some(asset_manifest))?;
 
@@ -122,6 +123,7 @@ pub fn publish(
     } else {
         let upload_client = http::legacy_auth_client(user);
 
+        deploy::pre_upload()?;
         upload::script(&upload_client, &target, None)?;
         deploy(target)?;
     }
@@ -130,10 +132,7 @@ pub fn publish(
 }
 
 fn build_output_message(deploy_results: deploy::DeployResults, target_name: String, out: Output) {
-    let deploy::DeployResults {
-        urls,
-        schedules,
-    } = deploy_results;
+    let deploy::DeployResults { urls, schedules } = deploy_results;
 
     let mut msg = "Successfully published your script ".to_owned();
     if !urls.is_empty() {

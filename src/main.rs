@@ -19,6 +19,7 @@ use wrangler::preview::{HttpMethod, PreviewOpt};
 use wrangler::settings;
 use wrangler::settings::global_user::GlobalUser;
 use wrangler::settings::toml::TargetType;
+use wrangler::settings::toml::{DurableObjects, DurableObjectsMigration};
 use wrangler::terminal::message::{Message, Output, StdOut};
 use wrangler::terminal::{emoji, interactive, styles};
 use wrangler::version::background_check_for_updates;
@@ -573,6 +574,24 @@ fn run() -> Result<(), failure::Error> {
                     .long("output")
                     .takes_value(true)
                     .possible_value("json")
+                )
+                .arg(
+                    Arg::with_name("new_class")
+                    .takes_value(true)
+                    .number_of_values(1)
+                    .multiple(true)
+                )
+                .arg(
+                    Arg::with_name("unused_class")
+                    .takes_value(true)
+                    .number_of_values(1)
+                    .multiple(true)
+                )
+                .arg(
+                    Arg::with_name("delete_class")
+                    .takes_value(true)
+                    .number_of_values(1)
+                    .multiple(true)
                 ),
         )
         .subcommand(
@@ -855,6 +874,31 @@ fn run() -> Result<(), failure::Error> {
         let manifest = settings::toml::Manifest::new(config_path)?;
         let env = matches.value_of("env");
         let mut target = manifest.get_target(env, is_preview)?;
+
+        if matches.is_present("new_class")
+            || matches.is_present("deleted_class")
+            || matches.is_present("unused_class")
+        {
+            let mut migration = DurableObjectsMigration::default();
+
+            for class in matches.values_of("new_class").iter_mut().flatten() {
+                migration.new_classes.push(class.to_owned());
+            }
+
+            for class in matches.values_of("deleted_class").iter_mut().flatten() {
+                migration.deleted_classes.push(class.to_owned());
+            }
+
+            for class in matches.values_of("unused_class").iter_mut().flatten() {
+                migration.unused_classes.push(class.to_owned());
+            }
+
+            target.durable_objects = Some(DurableObjects::from_config_and_adhoc(
+                target.durable_objects.unwrap_or_default(),
+                migration,
+            )?);
+        }
+
         let deploy_config = manifest.get_deployments(env)?;
         if matches.is_present("output") && matches.value_of("output") == Some("json") {
             commands::publish(&user, &mut target, deploy_config, Output::Json)?;
